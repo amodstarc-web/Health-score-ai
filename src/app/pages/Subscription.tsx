@@ -6,6 +6,8 @@ import { Button } from '../components/ui/button';
 import { Chatbot } from '../components/Chatbot';
 import { Footer } from '../components/Footer';
 import { LoginModal, UserData } from '../components/LoginModal';
+import { subscribeMonthly, isRazorpayConfigured } from '../config/razorpay';
+import { toast } from 'sonner';
 
 export default function Subscription() {
   const navigate = useNavigate();
@@ -33,21 +35,72 @@ export default function Subscription() {
   };
 
   const handlePayment = async () => {
-    setIsProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      setIsProcessing(false);
-      setShowPaymentModal(false);
-      // Save subscription status to localStorage
-      localStorage.setItem('healthScoreSubscription', JSON.stringify({
-        active: true,
-        startDate: new Date().toISOString(),
-        price: 199,
-        nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      }));
-      // Navigate to dashboard
-      navigate('/subscriber-dashboard');
-    }, 2000);
+    // Check if Razorpay is configured
+    if (!isRazorpayConfigured()) {
+      // For demo/testing purposes when Razorpay is not configured
+      setIsProcessing(true);
+      setTimeout(() => {
+        setIsProcessing(false);
+        setShowPaymentModal(false);
+        
+        // Save subscription status to localStorage
+        localStorage.setItem('healthScoreSubscription', JSON.stringify({
+          active: true,
+          startDate: new Date().toISOString(),
+          price: 299,
+          nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        }));
+        
+        toast.success('🎉 Subscription Activated! (Demo Mode - No payment required)', {
+          duration: 4000,
+        });
+        
+        // Navigate to dashboard
+        navigate('/subscriber-dashboard');
+      }, 2000);
+      return;
+    }
+
+    // Use the Razorpay integration for monthly subscription
+    subscribeMonthly(
+      userData?.name || 'Guest User',
+      userData?.email || '',
+      (paymentId) => {
+        // Payment successful
+        toast.success('Payment successful! Your subscription is now active.', {
+          duration: 5000,
+        });
+        
+        setShowPaymentModal(false);
+        setIsProcessing(false);
+        
+        // Save subscription status to localStorage
+        localStorage.setItem('healthScoreSubscription', JSON.stringify({
+          active: true,
+          startDate: new Date().toISOString(),
+          price: 299,
+          nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+          paymentId: paymentId,
+        }));
+        
+        // Log payment for tracking (in production, send to your backend)
+        console.log('Subscription Payment ID:', paymentId);
+        
+        // Navigate to dashboard
+        navigate('/subscriber-dashboard');
+      },
+      (error) => {
+        // Payment failed or cancelled
+        console.error('Subscription payment error:', error);
+        setIsProcessing(false);
+        
+        if (error.includes('cancelled')) {
+          toast.error('Payment cancelled. Subscription not activated.');
+        } else {
+          toast.error('Payment failed. Please try again or contact support.');
+        }
+      }
+    );
   };
 
   const features = [
@@ -628,13 +681,6 @@ export default function Subscription() {
               <div className="flex items-center justify-center gap-2 mt-6 text-xs text-gray-500">
                 <Shield className="h-4 w-4" />
                 <span>100% Secure Payment • Cancel Anytime</span>
-              </div>
-
-              {/* Demo Notice */}
-              <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                <p className="text-xs text-yellow-800 text-center">
-                  <strong>Demo Mode:</strong> Click subscribe to access the premium dashboard without actual payment.
-                </p>
               </div>
             </div>
           </motion.div>
