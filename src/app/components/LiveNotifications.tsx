@@ -59,6 +59,9 @@ export function LiveNotifications() {
   useEffect(() => {
     // Show a notification every 5-10 seconds
     const showNotification = () => {
+      // Only show one notification at a time
+      if (notifications.length > 0) return;
+      
       // 60% chance to show real user notification if available, 40% random
       const shouldShowReal = Math.random() < 0.6;
       const realNotification = getRandomRecentNotification();
@@ -86,25 +89,28 @@ export function LiveNotifications() {
         };
       }
 
-      setNotifications(prev => [...prev, newNotification]);
+      setNotifications([newNotification]); // Only one notification at a time
       setNextId(prev => prev + 1);
 
       // Auto-remove after 5 seconds
       setTimeout(() => {
-        setNotifications(prev => prev.filter(n => n.id !== newNotification.id));
+        setNotifications([]);
       }, 5000);
     };
 
     // Initial notification after 3 seconds
     const initialTimeout = setTimeout(showNotification, 3000);
 
-    // Subsequent notifications every 7-12 seconds
+    // Subsequent notifications every 8-12 seconds (increased interval)
     const interval = setInterval(() => {
       showNotification();
-    }, Math.random() * 5000 + 7000); // Random between 7-12 seconds
+    }, Math.random() * 4000 + 8000); // Random between 8-12 seconds
 
     // Listen for real-time user notifications
     const handleNewUserNotification = (event: CustomEvent<UserTestCompletion>) => {
+      // Only show if no notification is currently displayed
+      if (notifications.length > 0) return;
+      
       const userNotification: Notification = {
         id: nextId,
         name: event.detail.name,
@@ -113,12 +119,12 @@ export function LiveNotifications() {
         isReal: true
       };
       
-      setNotifications(prev => [...prev, userNotification]);
+      setNotifications([userNotification]); // Only one notification at a time
       setNextId(prev => prev + 1);
 
       // Auto-remove after 5 seconds
       setTimeout(() => {
-        setNotifications(prev => prev.filter(n => n.id !== userNotification.id));
+        setNotifications([]);
       }, 5000);
     };
 
@@ -129,7 +135,7 @@ export function LiveNotifications() {
       clearInterval(interval);
       window.removeEventListener('newUserNotification', handleNewUserNotification as EventListener);
     };
-  }, [nextId]);
+  }, [nextId, notifications.length]);
 
   const handleClose = (id: number) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
@@ -159,16 +165,17 @@ export function LiveNotifications() {
               <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0">
                 <CheckCircle className="h-5 w-5 text-white" />
               </div>
-              {/* Blinking indicator */}
+              {/* Blinking indicator - blinks every 3 seconds */}
               <motion.div
-                className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full"
+                className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full"
                 animate={{ 
-                  scale: [1, 1.3, 1],
-                  opacity: [1, 0.5, 1]
+                  scale: [1, 1.5, 1],
+                  opacity: [1, 0, 1]
                 }}
                 transition={{ 
-                  duration: 1.5, 
+                  duration: 0.6,
                   repeat: Infinity,
+                  repeatDelay: 2.4, // Blinks for 0.6s, then waits 2.4s = total 3s cycle
                   ease: "easeInOut"
                 }}
               />
